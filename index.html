@@ -90,6 +90,8 @@ h1,h2,h3,.ph,.empty h2{font-weight:400!important}
 .tag{border-radius:3px;padding:2px 16px 2px 9px;clip-path:polygon(0 0,100% 0,88% 50%,100% 100%,0 100%)}
 .balcao{background:#EADDBB;border-color:#D3C09A;border-radius:10px;box-shadow:inset 0 0 0 4px #EADDBB,inset 0 0 0 5px #D3C09A}
 dialog{border:1px solid #D3C09A;border-radius:12px;background:#F6EDD6}
+#reader{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:16px;background:#2b1d14;min-height:0}#reader[hidden]{display:none}dialog{overflow:auto;max-height:92dvh}
+[hidden]{display:none!important}.sync{margin-top:18px;border-top:1px solid #D3C09A;padding-top:14px}.sync h3{font:400 1.45rem var(--serif);margin:0 0 4px}
 </style>
 </head>
 <body>
@@ -103,7 +105,7 @@ dialog{border:1px solid #D3C09A;border-radius:12px;background:#F6EDD6}
 <g><circle cx="88" cy="118" r="22" fill="#7A5238"/><circle cx="88" cy="118" r="17" fill="#F4E3A1"/><path d="M88 101V135M71 118H105" stroke="#7A5238" stroke-width="3"/>
 <circle cx="312" cy="118" r="22" fill="#7A5238"/><circle cx="312" cy="118" r="17" fill="#F4E3A1"/><path d="M312 101V135M295 118H329" stroke="#7A5238" stroke-width="3"/></g>
 <g fill="#E8C86A"><circle cx="128" cy="177" r="3"/><circle cx="140" cy="181" r="3"/><circle cx="268" cy="179" r="3"/><circle cx="282" cy="176" r="3"/></g></svg>
-<div class="sign"><h1>Acervo Sizzy</h1><p>Uma toca cheia de histórias</p><div class="divider"><i></i><b>❦</b><i></i></div></div>
+<div class="sign"><h1>Acervo Sizzy</h1><div class="divider"><i></i><b>❦</b><i></i></div></div>
 </header>
 <main>
 <section class="actions">
@@ -120,13 +122,16 @@ dialog{border:1px solid #D3C09A;border-radius:12px;background:#F6EDD6}
 <section class="empty" id="empty" hidden><svg width="110" height="82" viewBox="0 0 120 90" aria-hidden="true"><rect x="14" y="62" width="92" height="16" rx="3" fill="#6B4A33"/><rect x="20" y="66" width="80" height="2" fill="#D4A94B"/><rect x="22" y="44" width="80" height="16" rx="3" fill="#4F6B3F"/><rect x="28" y="48" width="68" height="2" fill="#D4A94B"/><rect x="12" y="26" width="84" height="16" rx="3" fill="#7A5238"/><rect x="18" y="30" width="72" height="2" fill="#D4A94B"/><path d="M92 24c12-14 26-12 28-8-2 14-16 18-28 8z" fill="#86A265"/></svg><h2>Sua estante está vazia</h2><p>Escaneie o código de barras do primeiro livro para começar.</p></section>
 <section class="balcao"><h2>Escrivaninha</h2><p>Leve seu acervo com você ou guarde uma cópia de segurança.</p>
 <div class="row"><button class="btn main" id="xlsx" style="grid-column:auto">Exportar para Excel</button><button class="btn soft" id="bkp">Salvar backup</button><button class="btn soft" id="rst">Restaurar backup</button></div>
+<div class="sync"><h3>Estante compartilhada</h3><p class="hint" id="syncSt" role="status"></p>
+<form class="search-row" id="syncForm"><input id="syncIn" placeholder="Cole aqui o endereço do banco online" aria-label="Endereço do banco online" autocomplete="off"><button class="btn soft" style="padding:11px 18px;font-size:1rem">Conectar</button></form>
+<div class="row"><button type="button" class="btn soft" id="syncLink" hidden>Copiar link para compartilhar</button></div></div>
 <input type="file" id="file" accept=".json,application/json" hidden></section>
 </main>
 <footer>Seus livros ficam guardados neste aparelho. Salve um backup de vez em quando.</footer>
 
 <dialog id="dScan"><div class="dlg"><h2>Escanear ISBN</h2>
-<div id="reader"></div><p class="hint" id="scanMsg"></p>
-<form class="search-row" id="isbnForm"><input id="isbnIn" inputmode="numeric" autocomplete="off" placeholder="Ou digite o ISBN (10 ou 13 números)" aria-label="ISBN"><button class="btn main" style="grid-column:auto;padding:11px 18px;font-size:1rem">Buscar</button></form>
+<video id="reader" playsinline muted></video><p class="hint" id="scanMsg"></p>
+<form class="search-row" id="isbnForm"><input id="isbnIn" type="tel" inputmode="numeric" autocomplete="off" placeholder="Ou digite o ISBN (10 ou 13 números)" aria-label="ISBN"><button class="btn main" style="grid-column:auto;padding:11px 18px;font-size:1rem">Buscar</button></form>
 <div class="row"><button class="btn ghost" id="scanX" type="button">Cancelar</button></div></div></dialog>
 
 <dialog id="dBook"><form class="dlg" id="bForm"><h2 id="bHead">Novo livro</h2><p class="hint" id="bMsg" role="status"></p>
@@ -140,7 +145,7 @@ dialog{border:1px solid #D3C09A;border-radius:12px;background:#F6EDD6}
 <div class="row"><button type="button" class="btn danger" id="bDel" hidden>Remover do acervo</button><button type="button" class="btn ghost" id="bX">Cancelar</button><button class="btn main" id="bOk" style="grid-column:auto;font-size:1rem;padding:13px 22px">Guardar no acervo</button></div></form></dialog>
 <div class="toast" id="toast" role="status"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function(){
@@ -149,7 +154,7 @@ var books=[],filter='',query='',editId=null,cover='',scanner=null,busy=false;
 var ST={quero:'Quero ler',lendo:'Lendo agora',lido:'Já li'};
 var PAL=[['#6B4A33','#E8D29A'],['#4F6B3F','#E8D29A'],['#7A5238','#EBD9A8'],['#3F5A3A','#EBD9A8']];
 try{books=JSON.parse(localStorage.getItem(KEY))||[];if(!Array.isArray(books))books=[]}catch(e){books=[]}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(books))}catch(e){toast('Não consegui guardar neste aparelho. Salve um backup.')}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(books))}catch(e){toast('Não consegui guardar neste aparelho. Salve um backup.')}if(DB)queueSync()}
 var tt;function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on')},2800)}
 function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
@@ -200,12 +205,12 @@ function openBook(b,id){
  $('fTitle').value=b.title||'';$('fAut').value=b.authors||'';$('fPub').value=b.publisher||'';$('fAno').value=b.year||'';$('fIsbn').value=b.isbn||'';$('fSt').value=b.status||'';$('fNote').value=b.notes||'';
  prev();if(!$('dBook').open)$('dBook').showModal()}
 $('bX').onclick=function(){$('dBook').close()};
-$('bDel').onclick=function(){if(confirm('Remover este livro do acervo?')){books=books.filter(function(b){return b.id!==editId});save();render();$('dBook').close();toast('Livro removido.')}};
+$('bDel').onclick=function(){if(confirm('Remover este livro do acervo?')){var rb=books.filter(function(b){return b.id===editId})[0];if(rb){GONE.push(rb.id);saveGone()}books=books.filter(function(b){return b.id!==editId});save();render();$('dBook').close();toast('Livro removido.')}};
 $('bForm').onsubmit=function(e){e.preventDefault();
  var t=$('fTitle').value.trim();if(!t){toast('Dê um título ao livro.');return}
  var raw=$('fIsbn').value.trim(),i='';if(raw){i=isbn(raw);if(!i){toast('Esse ISBN não parece certo. Confira os números.');return}}
  if(i&&books.some(function(b){return b.isbn===i&&b.id!==editId})){toast('Este livro já está no acervo.');return}
- var d={title:t,authors:$('fAut').value.trim(),publisher:$('fPub').value.trim(),year:$('fAno').value.trim(),isbn:i,status:$('fSt').value,notes:$('fNote').value.trim(),cover:cover};
+ var d={title:t,authors:$('fAut').value.trim(),publisher:$('fPub').value.trim(),year:$('fAno').value.trim(),isbn:i,status:$('fSt').value,notes:$('fNote').value.trim(),cover:cover,upd:Date.now()};
  if(editId){Object.assign(books.filter(function(b){return b.id===editId})[0],d);toast('Alterações guardadas.')}
  else{d.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);d.added=new Date().toISOString();books.unshift(d);toast('Guardado no acervo.')}
  save();render();$('dBook').close()};
@@ -220,22 +225,33 @@ function fromIsbn(i){
   $('bMsg').textContent='Encontrei! Confira os dados antes de guardar.'})}
 $('manual').onclick=function(){openBook({},null)};
 /* Leitor */
-function stopScan(){var s=scanner;scanner=null;if(!s)return Promise.resolve();return s.stop().catch(function(){}).then(function(){try{s.clear()}catch(e){}})}
-function closeScan(){stopScan().then(function(){if($('dScan').open)$('dScan').close()})}
+var stream=null,reader=null,timer=null;
+function stopScan(){clearInterval(timer);timer=null;if(reader){try{reader.reset()}catch(e){}reader=null}
+ if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}
+ $('reader').srcObject=null;return Promise.resolve()}
+function closeScan(){stopScan();if($('dScan').open)$('dScan').close()}
+function found(t){if(busy||!t)return;var i=isbn(t);
+ if(i&&/^97[89]/.test(i)){busy=true;if(navigator.vibrate)navigator.vibrate(60);closeScan();fromIsbn(i)}
+ else $('scanMsg').textContent='Esse código não parece ser de um livro. Procure o que começa com 978 ou 979.'}
+function noCam(){$('reader').hidden=true;$('scanMsg').textContent='Não consegui abrir a câmera. Permita o acesso no navegador ou digite o ISBN abaixo.'}
 function openScan(camera){
  $('scanMsg').textContent='';$('isbnIn').value='';busy=false;$('dScan').showModal();
  if(!camera){$('reader').hidden=true;$('scanMsg').textContent='Está no verso do livro, perto do código de barras.';$('isbnIn').focus();return}
- $('reader').hidden=false;
- if(typeof Html5Qrcode==='undefined'){$('reader').hidden=true;$('scanMsg').textContent='O leitor não carregou. Verifique a internet ou digite o ISBN.';return}
- $('scanMsg').textContent='Aponte a câmera para o código de barras do verso do livro.';
- scanner=new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13],verbose:false});
- scanner.start({facingMode:'environment'},{fps:10,qrbox:function(w,h){return{width:Math.floor(Math.min(320,w*.9)),height:Math.floor(Math.min(150,h*.6))}}},function(t){
-  var i=isbn(t);if(busy)return;
-  if(i&&/^97[89]/.test(i)){busy=true;if(navigator.vibrate)navigator.vibrate(60);closeScan();fromIsbn(i)}
-  else $('scanMsg').textContent='Esse código não parece ser de um livro. Procure o que começa com 978 ou 979.'},function(){}
- ).catch(function(){$('reader').hidden=true;scanner=null;$('scanMsg').textContent='Não consegui abrir a câmera. Permita o acesso no navegador ou digite o ISBN abaixo.'})}
+ var v=$('reader'),cons={video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}};
+ v.hidden=false;$('scanMsg').textContent='Aponte a câmera para o código de barras e afaste um pouco até ficar nítido.';
+ var nat=window.BarcodeDetector?BarcodeDetector.getSupportedFormats().then(function(f){return f.indexOf('ean_13')>-1}).catch(function(){return false}):Promise.resolve(false);
+ nat.then(function(ok){
+  if(!$('dScan').open)return;
+  if(ok){navigator.mediaDevices.getUserMedia(cons).then(function(st){
+    if(!$('dScan').open){st.getTracks().forEach(function(t){t.stop()});return}
+    stream=st;v.srcObject=st;v.play();var det=new BarcodeDetector({formats:['ean_13']});
+    timer=setInterval(function(){if(busy||v.readyState<2)return;det.detect(v).then(function(r){if(r.length)found(r[0].rawValue)}).catch(function(){})},300)}).catch(noCam);return}
+  if(typeof ZXing==='undefined'){noCam();return}
+  var h=new Map();h.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.EAN_13]);h.set(ZXing.DecodeHintType.TRY_HARDER,true);
+  reader=new ZXing.BrowserMultiFormatReader(h,200);
+  reader.decodeFromConstraints(cons,v,function(r){if(r)found(r.getText())}).catch(noCam)})}
 $('scan').onclick=function(){openScan(true)};$('typeIsbn').onclick=function(){openScan(false)};
-$('scanX').onclick=closeScan;$('dScan').addEventListener('close',stopScan);
+$('scanX').onclick=closeScan;$('isbnIn').addEventListener('focus',function(){stopScan();$('reader').hidden=true;$('scanMsg').textContent='Digite o número do ISBN e toque em Buscar.'});$('dScan').addEventListener('close',stopScan);
 $('isbnForm').onsubmit=function(e){e.preventDefault();var i=isbn($('isbnIn').value);
  if(!i){$('scanMsg').textContent='Esse ISBN não parece certo. Confira os números.';return}
  busy=true;closeScan();fromIsbn(i)};
@@ -253,6 +269,39 @@ $('file').onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new Fi
  r.onload=function(){try{var a=JSON.parse(r.result);if(!Array.isArray(a))throw 0;var n=0;
   a.forEach(function(b){if(!b||!b.title)return;if(books.some(function(x){return x.id===b.id||(b.isbn&&x.isbn===b.isbn)}))return;if(!b.id)b.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);books.push(b);n++});
   save();render();toast(n?n+(n===1?' livro restaurado.':' livros restaurados.'):'Nenhum livro novo neste backup.')}catch(x){toast('Esse arquivo não parece um backup do Acervo Sizzy.')}e.target.value=''};r.readAsText(f)};
+/* Estante compartilhada (Firebase) */
+var DB='',GONE=[],syncing=false,again=false,sto;
+try{DB=localStorage.getItem('acervoSizzy.db')||'';GONE=JSON.parse(localStorage.getItem('acervoSizzy.gone'))||[]}catch(e){}
+function cleanDb(u){u=String(u||'').trim().replace(/\.json.*$/,'').replace(/\/+$/,'');return /^https:\/\/[a-z0-9.-]+\.(firebaseio\.com|firebasedatabase\.app)$/i.test(u)?u:''}
+var hm=location.hash.match(/^#db=(.+)$/);
+if(hm){var hu=cleanDb(decodeURIComponent(hm[1]));if(hu){DB=hu;try{localStorage.setItem('acervoSizzy.db',hu)}catch(e){}}history.replaceState(null,'',location.pathname+location.search)}
+function saveGone(){try{localStorage.setItem('acervoSizzy.gone',JSON.stringify(GONE))}catch(e){}}
+function setSt(m){$('syncSt').textContent=m}
+function sig(l){return l.map(function(b){return b.id+':'+(b.upd||0)}).join(',')}
+function merge(a,b){var m={};a.concat(b).forEach(function(x){if(!x||!x.id||GONE.indexOf(x.id)>-1)return;var o=m[x.id];if(!o||(x.upd||0)>(o.upd||0))m[x.id]=x});
+ var seen={},out=[];Object.keys(m).map(function(k){return m[k]}).sort(function(x,y){return String(x.added||'').localeCompare(String(y.added||''))}).forEach(function(x){if(x.isbn&&seen[x.isbn]){GONE.push(x.id);return}if(x.isbn)seen[x.isbn]=1;out.push(x)});
+ return out.reverse()}
+function syncNow(){
+ if(!DB)return;if(syncing){again=true;return}
+ syncing=true;setSt('Sincronizando…');
+ fetch(DB+'/acervo.json').then(function(r){if(!r.ok)throw r.status;return r.json()}).then(function(d){
+  var rb=d&&Array.isArray(d.books)?d.books:[],rg=d&&Array.isArray(d.gone)?d.gone:[];
+  rg.forEach(function(k){if(GONE.indexOf(k)<0)GONE.push(k)});
+  var out=merge(books,rb),chg=sig(out)!==sig(books),up=sig(out)!==sig(rb)||rg.length!==GONE.length;
+  books=out;if(chg){try{localStorage.setItem(KEY,JSON.stringify(books))}catch(e){}render()}saveGone();
+  if(!up){setSt('Estante compartilhada e em dia.');return}
+  return fetch(DB+'/acervo.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({books:out,gone:GONE})}).then(function(r){if(!r.ok)throw r.status;setSt('Estante compartilhada e em dia.')})
+ }).catch(function(e){setSt(e===401||e===403?'Sem permissão no banco online. Confira as regras do banco.':'Sem conexão agora. Tente de novo mais tarde.')}).then(function(){syncing=false;if(again){again=false;syncNow()}})}
+function queueSync(){clearTimeout(sto);sto=setTimeout(syncNow,700)}
+function ui(){$('syncLink').hidden=!DB;if(!DB)setSt('Ainda não conectada. Cole abaixo o endereço do banco online.')}
+$('syncForm').onsubmit=function(e){e.preventDefault();var u=cleanDb($('syncIn').value);
+ if(!u){setSt('Esse endereço não parece certo. Ele começa com https:// e termina com firebaseio.com ou firebasedatabase.app.');return}
+ DB=u;try{localStorage.setItem('acervoSizzy.db',u)}catch(x){}$('syncIn').value='';ui();syncNow()};
+$('syncLink').onclick=function(){var l=location.origin+location.pathname+'#db='+encodeURIComponent(DB);
+ (navigator.clipboard?navigator.clipboard.writeText(l):Promise.reject()).then(function(){toast('Link copiado. Mande para quem vai dividir a estante.')}).catch(function(){prompt('Copie este link:',l)})};
+document.addEventListener('visibilitychange',function(){if(!document.hidden)syncNow()});
+setInterval(function(){if(!document.hidden)syncNow()},60000);
+ui();syncNow();
 render();
 })();
 </script>

@@ -92,6 +92,7 @@ h1,h2,h3,.ph,.empty h2{font-weight:400!important}
 dialog{border:1px solid #D3C09A;border-radius:12px;background:#F6EDD6}
 #reader{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:16px;background:#2b1d14;min-height:0}#reader[hidden]{display:none}dialog{overflow:auto;max-height:92dvh}
 [hidden]{display:none!important}.sync{margin-top:18px;border-top:1px solid #D3C09A;padding-top:14px}.sync h3{font:400 1.45rem var(--serif);margin:0 0 4px}
+#shelves .chip{font-weight:700;color:var(--cafe)}#shelves .chip[aria-pressed=true]{background:#6B4A33;border-color:#6B4A33;color:#F6EDD6}#shelves .add{border-style:dashed;color:var(--fram2)}#shelfTools{margin:8px 0 0}#shelfTools .btn{padding:9px 16px;font-size:.92rem}
 </style>
 </head>
 <body>
@@ -115,11 +116,13 @@ dialog{border:1px solid #D3C09A;border-radius:12px;background:#F6EDD6}
 </section>
 <section class="toolbar">
 <label><span class="sr">Buscar no acervo</span><input id="q" type="search" placeholder="Buscar por título, autor ou ISBN"></label>
+<div class="chips" id="shelves" role="group" aria-label="Estantes"></div>
+<div class="row" id="shelfTools" hidden><button type="button" class="btn ghost" id="shRen">Renomear estante</button><button type="button" class="btn danger" id="shDel">Apagar estante</button></div>
 <div class="chips" id="chips" role="group" aria-label="Filtrar por situação"></div>
 </section>
 <p class="count" id="count"></p>
 <section class="grid" id="grid"></section>
-<section class="empty" id="empty" hidden><svg width="110" height="82" viewBox="0 0 120 90" aria-hidden="true"><rect x="14" y="62" width="92" height="16" rx="3" fill="#6B4A33"/><rect x="20" y="66" width="80" height="2" fill="#D4A94B"/><rect x="22" y="44" width="80" height="16" rx="3" fill="#4F6B3F"/><rect x="28" y="48" width="68" height="2" fill="#D4A94B"/><rect x="12" y="26" width="84" height="16" rx="3" fill="#7A5238"/><rect x="18" y="30" width="72" height="2" fill="#D4A94B"/><path d="M92 24c12-14 26-12 28-8-2 14-16 18-28 8z" fill="#86A265"/></svg><h2>Sua estante está vazia</h2><p>Escaneie o código de barras do primeiro livro para começar.</p></section>
+<section class="empty" id="empty" hidden><svg width="110" height="82" viewBox="0 0 120 90" aria-hidden="true"><rect x="14" y="62" width="92" height="16" rx="3" fill="#6B4A33"/><rect x="20" y="66" width="80" height="2" fill="#D4A94B"/><rect x="22" y="44" width="80" height="16" rx="3" fill="#4F6B3F"/><rect x="28" y="48" width="68" height="2" fill="#D4A94B"/><rect x="12" y="26" width="84" height="16" rx="3" fill="#7A5238"/><rect x="18" y="30" width="72" height="2" fill="#D4A94B"/><path d="M92 24c12-14 26-12 28-8-2 14-16 18-28 8z" fill="#86A265"/></svg><h2>Seu acervo está vazio</h2><p>Escaneie o código de barras do primeiro livro para começar.</p></section>
 <section class="balcao"><h2>Escrivaninha</h2><p>Leve seu acervo com você ou guarde uma cópia de segurança.</p>
 <div class="row"><button class="btn main" id="xlsx" style="grid-column:auto">Exportar para Excel</button><button class="btn soft" id="bkp">Salvar backup</button><button class="btn soft" id="rst">Restaurar backup</button></div>
 <input type="file" id="file" accept=".json,application/json" hidden></section>
@@ -137,6 +140,7 @@ dialog{border:1px solid #D3C09A;border-radius:12px;background:#F6EDD6}
 <label class="field"><span>Autor(es)</span><input id="fAut"></label>
 <div class="pair"><label class="field"><span>Editora</span><input id="fPub"></label><label class="field"><span>Ano</span><input id="fAno" inputmode="numeric"></label></div>
 <label class="field"><span>ISBN</span><input id="fIsbn" inputmode="numeric"></label>
+<label class="field"><span>Estante</span><select id="fShelf" required></select></label>
 <label class="field"><span>Situação</span><select id="fSt"><option value="">Sem marcação</option><option value="quero">Quero ler</option><option value="lendo">Lendo agora</option><option value="lido">Já li</option></select></label>
 <label class="field"><span>Anotação</span><textarea id="fNote" rows="2"></textarea></label>
 <div class="row"><button type="button" class="btn danger" id="bDel" hidden>Remover do acervo</button><button type="button" class="btn ghost" id="bX">Cancelar</button><button class="btn main" id="bOk" style="grid-column:auto;font-size:1rem;padding:13px 22px">Guardar no acervo</button></div></form></dialog>
@@ -147,10 +151,11 @@ dialog{border:1px solid #D3C09A;border-radius:12px;background:#F6EDD6}
 <script>
 (function(){
 var KEY='acervoSizzy.v1',$=function(i){return document.getElementById(i)};
-var books=[],filter='',query='',editId=null,cover='',scanner=null,busy=false;
+var books=[],shelves=[],shelfFilter='all',filter='',query='',editId=null,cover='',scanner=null,busy=false;
 var ST={quero:'Quero ler',lendo:'Lendo agora',lido:'Já li'};
 var PAL=[['#6B4A33','#E8D29A'],['#4F6B3F','#E8D29A'],['#7A5238','#EBD9A8'],['#3F5A3A','#EBD9A8']];
 try{books=JSON.parse(localStorage.getItem(KEY))||[];if(!Array.isArray(books))books=[]}catch(e){books=[]}
+try{shelves=JSON.parse(localStorage.getItem('acervoSizzy.shelves'))||[];if(!Array.isArray(shelves))shelves=[]}catch(e){shelves=[]}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(books))}catch(e){toast('Não consegui guardar neste aparelho. Salve um backup.')}if(DB)queueSync()}
 var tt;function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on')},2800)}
 function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
@@ -176,16 +181,34 @@ function mkCover(b){
  var u=b.cover||(b.isbn?'https://covers.openlibrary.org/b/isbn/'+b.isbn+'-M.jpg?default=false':'');
  if(u){var im=new Image();im.alt='';im.loading='lazy';im.onerror=ph;im.src=u;box.appendChild(im)}else ph();
  return box}
+function byName(a,b){return a.name.localeCompare(b.name,'pt-BR')}
+function saveShelves(){try{localStorage.setItem('acervoSizzy.shelves',JSON.stringify(shelves))}catch(e){}}
+function shName(id){var x=shelves.filter(function(y){return y.id===id})[0];return x?x.name:''}
+function inShelf(b,f){return f==='all'||(f==='none'?!shName(b.shelf):b.shelf===f)}
+function shCount(f){return books.filter(function(b){return inShelf(b,f)}).length}
+function newShelf(){var nm=(prompt('Nome da nova estante (ex.: Mangás, Terror):')||'').trim();if(!nm)return null;
+ if(shelves.some(function(x){return norm(x.name)===norm(nm)})){toast('Já existe uma estante com esse nome.');return null}
+ var x={id:'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:nm,upd:Date.now()};
+ shelves.push(x);shelves.sort(byName);saveShelves();queueSync();render();toast('Estante criada.');return x}
+function renderTabs(){
+ var box=$('shelves');box.textContent='';
+ if(shelfFilter!=='all'&&shelfFilter!=='none'&&!shName(shelfFilter))shelfFilter='all';
+ var tabs=[['all','Acervo']].concat(shelves.map(function(x){return[x.id,x.name]}));
+ if(shCount('none')>0)tabs.push(['none','Sem estante']);
+ tabs.forEach(function(t){var b=el('button','chip',t[1]+' ('+shCount(t[0])+')');b.type='button';b.setAttribute('aria-pressed',t[0]===shelfFilter);b.onclick=function(){shelfFilter=t[0];render()};box.appendChild(b)});
+ var add=el('button','chip add','+ Nova estante');add.type='button';add.onclick=function(){var x=newShelf();if(x){shelfFilter=x.id;render()}};box.appendChild(add);
+ $('shelfTools').hidden=(shelfFilter==='all'||shelfFilter==='none')}
 function render(){
- var q=norm(query),list=books.filter(function(b){return(!filter||b.status===filter)&&(!q||norm([b.title,b.authors,b.isbn,b.publisher].join(' ')).indexOf(q)>-1)});
+ renderTabs();
+ var q=norm(query),list=books.filter(function(b){return inShelf(b,shelfFilter)&&(!filter||b.status===filter)&&(!q||norm([b.title,b.authors,b.isbn,b.publisher].join(' ')).indexOf(q)>-1)});
  var g=$('grid');g.textContent='';
  list.forEach(function(b){var c=el('button','card');c.type='button';c.appendChild(mkCover(b));c.appendChild(el('h3','',b.title));
   if(b.authors)c.appendChild(el('small','',b.authors));
+  var sn=shName(b.shelf);if(shelfFilter==='all'&&sn){var sm=el('small','',sn);sm.style.fontStyle='italic';c.appendChild(sm)}
   if(b.status)c.appendChild(el('span','tag t-'+b.status,ST[b.status]));
   c.onclick=function(){openBook(b,b.id)};g.appendChild(c)});
  $('empty').hidden=books.length>0;
- var n=books.length;$('count').textContent=!n?'':(n+(n===1?' livro':' livros')+' na estante'+(list.length!==n?' · mostrando '+list.length:''));
- $('count').textContent=$('count').textContent.replace(' · ',', ')}
+ var n=books.length;$('count').textContent=!n?'':(n+(n===1?' livro':' livros')+' no Acervo'+(list.length!==n?', mostrando '+list.length:''))}
 var chips=$('chips');[['','Todos'],['quero','Quero ler'],['lendo','Lendo agora'],['lido','Já li']].forEach(function(o){
  var b=el('button','chip',o[1]);b.type='button';b.setAttribute('aria-pressed',o[0]===filter);
  b.onclick=function(){filter=o[0];[].forEach.call(chips.children,function(x){x.setAttribute('aria-pressed',x===b)});render()};chips.appendChild(b)});
@@ -195,15 +218,16 @@ function prev(){var p=$('prev');p.textContent='';p.replaceWith(Object.assign(mkC
 function openBook(b,id){
  editId=id;cover=b.cover||'';
  $('bHead').textContent=id?'Detalhes do livro':'Novo livro';$('bOk').textContent=id?'Guardar alterações':'Guardar no acervo';$('bDel').hidden=!id;$('bMsg').textContent='';
- $('fTitle').value=b.title||'';$('fAut').value=b.authors||'';$('fPub').value=b.publisher||'';$('fAno').value=b.year||'';$('fIsbn').value=b.isbn||'';$('fSt').value=b.status||'';$('fNote').value=b.notes||'';
+ $('fTitle').value=b.title||'';$('fAut').value=b.authors||'';$('fPub').value=b.publisher||'';$('fAno').value=b.year||'';$('fIsbn').value=b.isbn||'';$('fSt').value=b.status||'';$('fNote').value=b.notes||'';fillShelf(b.shelf||(id?'':(shelfFilter!=='all'&&shelfFilter!=='none'?shelfFilter:'')));
  prev();if(!$('dBook').open)$('dBook').showModal()}
 $('bX').onclick=function(){$('dBook').close()};
 $('bDel').onclick=function(){if(confirm('Remover este livro do acervo?')){var rb=books.filter(function(b){return b.id===editId})[0];if(rb){GONE.push(rb.id);saveGone()}books=books.filter(function(b){return b.id!==editId});save();render();$('dBook').close();toast('Livro removido.')}};
 $('bForm').onsubmit=function(e){e.preventDefault();
  var t=$('fTitle').value.trim();if(!t){toast('Dê um título ao livro.');return}
+ var sh=$('fShelf').value;if(!sh||sh==='__new'){toast('Escolha a estante do livro.');return}
  var raw=$('fIsbn').value.trim(),i='';if(raw){i=isbn(raw);if(!i){toast('Esse ISBN não parece certo. Confira os números.');return}}
  if(i&&books.some(function(b){return b.isbn===i&&b.id!==editId})){toast('Este livro já está no acervo.');return}
- var d={title:t,authors:$('fAut').value.trim(),publisher:$('fPub').value.trim(),year:$('fAno').value.trim(),isbn:i,status:$('fSt').value,notes:$('fNote').value.trim(),cover:cover,upd:Date.now()};
+ var d={title:t,authors:$('fAut').value.trim(),publisher:$('fPub').value.trim(),year:$('fAno').value.trim(),isbn:i,status:$('fSt').value,shelf:sh,notes:$('fNote').value.trim(),cover:cover,upd:Date.now()};
  if(editId){Object.assign(books.filter(function(b){return b.id===editId})[0],d);toast('Alterações guardadas.')}
  else{d.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);d.added=new Date().toISOString();books.unshift(d);toast('Guardado no acervo.')}
  save();render();$('dBook').close()};
@@ -253,38 +277,54 @@ function dl(blob,name){var a=document.createElement('a');a.href=URL.createObject
 $('xlsx').onclick=function(){
  if(!books.length){toast('O acervo está vazio.');return}
  if(typeof XLSX==='undefined'){toast('Não consegui preparar a planilha. Verifique a internet.');return}
- var rows=books.map(function(b){return{'Título':b.title,'Autor(es)':b.authors,'Editora':b.publisher,'Ano':b.year,'ISBN':b.isbn,'Situação':ST[b.status]||'','Anotação':b.notes,'Adicionado em':(b.added||'').slice(0,10)}});
- var ws=XLSX.utils.json_to_sheet(rows);ws['!cols']=[{wch:40},{wch:28},{wch:22},{wch:7},{wch:16},{wch:16},{wch:36},{wch:14}];
+ var rows=books.map(function(b){return{'Título':b.title,'Autor(es)':b.authors,'Editora':b.publisher,'Ano':b.year,'ISBN':b.isbn,'Estante':shName(b.shelf),'Situação':ST[b.status]||'','Anotação':b.notes,'Adicionado em':(b.added||'').slice(0,10)}});
+ var ws=XLSX.utils.json_to_sheet(rows);ws['!cols']=[{wch:40},{wch:28},{wch:22},{wch:7},{wch:16},{wch:18},{wch:16},{wch:36},{wch:14}];
  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Acervo Sizzy');XLSX.writeFile(wb,'Acervo-Sizzy-'+today()+'.xlsx');toast('Planilha pronta.')};
-$('bkp').onclick=function(){if(!books.length){toast('O acervo está vazio.');return}dl(new Blob([JSON.stringify(books,null,1)],{type:'application/json'}),'Acervo-Sizzy-backup-'+today()+'.json');toast('Backup salvo.')};
+$('bkp').onclick=function(){if(!books.length){toast('O acervo está vazio.');return}dl(new Blob([JSON.stringify({books:books,shelves:shelves},null,1)],{type:'application/json'}),'Acervo-Sizzy-backup-'+today()+'.json');toast('Backup salvo.')};
 $('rst').onclick=function(){$('file').click()};
 $('file').onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();
- r.onload=function(){try{var a=JSON.parse(r.result);if(!Array.isArray(a))throw 0;var n=0;
+ r.onload=function(){try{var o=JSON.parse(r.result),a=Array.isArray(o)?o:o.books;if(!Array.isArray(a))throw 0;if(o.shelves&&Array.isArray(o.shelves)){o.shelves.forEach(function(x){if(x&&x.id&&x.name&&!shelves.some(function(y){return y.id===x.id}))shelves.push(x)});shelves.sort(byName);saveShelves()}var n=0;
   a.forEach(function(b){if(!b||!b.title)return;if(books.some(function(x){return x.id===b.id||(b.isbn&&x.isbn===b.isbn)}))return;if(!b.id)b.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);books.push(b);n++});
   save();render();toast(n?n+(n===1?' livro restaurado.':' livros restaurados.'):'Nenhum livro novo neste backup.')}catch(x){toast('Esse arquivo não parece um backup do Acervo Sizzy.')}e.target.value=''};r.readAsText(f)};
 /* Estante compartilhada (Firebase), sempre ligada */
-var DB='https://acervo-sizzy-default-rtdb.firebaseio.com',GONE=[],syncing=false,again=false,sto;
-try{GONE=JSON.parse(localStorage.getItem('acervoSizzy.gone'))||[]}catch(e){}
+var DB='https://acervo-sizzy-default-rtdb.firebaseio.com',GONE=[],GS=[],syncing=false,again=false,sto;
+try{GONE=JSON.parse(localStorage.getItem('acervoSizzy.gone'))||[];GS=JSON.parse(localStorage.getItem('acervoSizzy.goneShelves'))||[]}catch(e){}
 function saveGone(){try{localStorage.setItem('acervoSizzy.gone',JSON.stringify(GONE))}catch(e){}}
+function saveGS(){try{localStorage.setItem('acervoSizzy.goneShelves',JSON.stringify(GS))}catch(e){}}
 function setSt(m){$('syncSt').textContent=m}
 function sig(l){return l.map(function(b){return b.id+':'+(b.upd||0)}).join(',')}
+function sigS(l){return l.map(function(x){return x.id+':'+x.name+':'+(x.upd||0)}).join(',')}
 function merge(a,b){var m={};a.concat(b).forEach(function(x){if(!x||!x.id||GONE.indexOf(x.id)>-1)return;var o=m[x.id];if(!o||(x.upd||0)>(o.upd||0))m[x.id]=x});
  var seen={},out=[];Object.keys(m).map(function(k){return m[k]}).sort(function(x,y){return String(x.added||'').localeCompare(String(y.added||''))}).forEach(function(x){if(x.isbn&&seen[x.isbn]){GONE.push(x.id);return}if(x.isbn)seen[x.isbn]=1;out.push(x)});
  return out.reverse()}
+function mergeS(a,b){var m={};a.concat(b).forEach(function(x){if(!x||!x.id||!x.name||GS.indexOf(x.id)>-1)return;var o=m[x.id];if(!o||(x.upd||0)>(o.upd||0))m[x.id]=x});return Object.keys(m).map(function(k){return m[k]}).sort(byName)}
 function syncNow(){
  if(syncing){again=true;return}
  syncing=true;setSt('Atualizando…');
  fetch(DB+'/acervo.json').then(function(r){if(!r.ok)throw r.status;return r.json()}).then(function(d){
-  var rb=d&&Array.isArray(d.books)?d.books:[],rg=d&&Array.isArray(d.gone)?d.gone:[];
-  rg.forEach(function(k){if(GONE.indexOf(k)<0)GONE.push(k)});
-  var out=merge(books,rb),chg=sig(out)!==sig(books),up=sig(out)!==sig(rb)||rg.length!==GONE.length;
-  books=out;if(chg){try{localStorage.setItem(KEY,JSON.stringify(books))}catch(e){}render()}saveGone();
+  var rb=d&&Array.isArray(d.books)?d.books:[],rg=d&&Array.isArray(d.gone)?d.gone:[],rs=d&&Array.isArray(d.shelves)?d.shelves:[],rgs=d&&Array.isArray(d.goneShelves)?d.goneShelves:[];
+  rg.forEach(function(k){if(GONE.indexOf(k)<0)GONE.push(k)});rgs.forEach(function(k){if(GS.indexOf(k)<0)GS.push(k)});
+  var out=merge(books,rb),sOut=mergeS(shelves,rs);
+  var chg=sig(out)!==sig(books)||sigS(sOut)!==sigS(shelves),up=sig(out)!==sig(rb)||sigS(sOut)!==sigS(rs)||rg.length!==GONE.length||rgs.length!==GS.length;
+  books=out;shelves=sOut;
+  if(chg){try{localStorage.setItem(KEY,JSON.stringify(books))}catch(e){}saveShelves();render()}saveGone();saveGS();
   if(!up){setSt('Tudo em dia.');return}
-  return fetch(DB+'/acervo.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({books:out,gone:GONE})}).then(function(r){if(!r.ok)throw r.status;setSt('Tudo em dia.')})
+  return fetch(DB+'/acervo.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({books:out,gone:GONE,shelves:sOut,goneShelves:GS})}).then(function(r){if(!r.ok)throw r.status;setSt('Tudo em dia.')})
  }).catch(function(e){setSt(e===401||e===403?'Sem permissão no banco online. Confira as regras do banco.':'Sem conexão agora. Tente de novo mais tarde.')}).then(function(){syncing=false;if(again){again=false;syncNow()}})}
 function queueSync(){clearTimeout(sto);sto=setTimeout(syncNow,700)}
+/* Estantes: preencher, criar, renomear, apagar */
+function fillShelf(val){var sel=$('fShelf');sel.textContent='';sel.add(new Option('Escolha a estante…',''));shelves.forEach(function(x){sel.add(new Option(x.name,x.id))});sel.add(new Option('+ Criar nova estante…','__new'));sel.value=val||''}
+$('fShelf').onchange=function(){if(this.value==='__new'){var x=newShelf();fillShelf(x?x.id:'')}};
+function curShelf(){return shelves.filter(function(x){return x.id===shelfFilter})[0]}
+$('shRen').onclick=function(){var x=curShelf();if(!x)return;var nm=(prompt('Novo nome da estante:',x.name)||'').trim();if(!nm||nm===x.name)return;
+ if(shelves.some(function(y){return y.id!==x.id&&norm(y.name)===norm(nm)})){toast('Já existe uma estante com esse nome.');return}
+ x.name=nm;x.upd=Date.now();shelves.sort(byName);saveShelves();queueSync();render();toast('Estante renomeada.')};
+$('shDel').onclick=function(){var x=curShelf();if(!x)return;var n=shCount(x.id);
+ if(!confirm('Apagar a estante "'+x.name+'"?'+(n?' Os '+n+(n===1?' livro dela não será apagado e fica':' livros dela não serão apagados e ficam')+' em "Sem estante".':'')))return;
+ books.forEach(function(b){if(b.shelf===x.id){b.shelf='';b.upd=Date.now()}});
+ shelves=shelves.filter(function(y){return y.id!==x.id});GS.push(x.id);saveShelves();saveGS();shelfFilter='all';save();render();toast('Estante apagada.')};
 document.addEventListener('visibilitychange',function(){if(!document.hidden)syncNow()});
-setInterval(function(){if(!document.hidden)syncNow()},30000);
+setInterval(function(){if(!document.hidden)syncNow()},60000);
 syncNow();
 render();
 })();

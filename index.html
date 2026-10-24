@@ -122,12 +122,9 @@ dialog{border:1px solid #D3C09A;border-radius:12px;background:#F6EDD6}
 <section class="empty" id="empty" hidden><svg width="110" height="82" viewBox="0 0 120 90" aria-hidden="true"><rect x="14" y="62" width="92" height="16" rx="3" fill="#6B4A33"/><rect x="20" y="66" width="80" height="2" fill="#D4A94B"/><rect x="22" y="44" width="80" height="16" rx="3" fill="#4F6B3F"/><rect x="28" y="48" width="68" height="2" fill="#D4A94B"/><rect x="12" y="26" width="84" height="16" rx="3" fill="#7A5238"/><rect x="18" y="30" width="72" height="2" fill="#D4A94B"/><path d="M92 24c12-14 26-12 28-8-2 14-16 18-28 8z" fill="#86A265"/></svg><h2>Sua estante está vazia</h2><p>Escaneie o código de barras do primeiro livro para começar.</p></section>
 <section class="balcao"><h2>Escrivaninha</h2><p>Leve seu acervo com você ou guarde uma cópia de segurança.</p>
 <div class="row"><button class="btn main" id="xlsx" style="grid-column:auto">Exportar para Excel</button><button class="btn soft" id="bkp">Salvar backup</button><button class="btn soft" id="rst">Restaurar backup</button></div>
-<div class="sync"><h3>Estante compartilhada</h3><p class="hint" id="syncSt" role="status"></p>
-<form class="search-row" id="syncForm"><input id="syncIn" placeholder="Cole aqui o endereço do banco online" aria-label="Endereço do banco online" autocomplete="off"><button class="btn soft" style="padding:11px 18px;font-size:1rem">Conectar</button></form>
-<div class="row"><button type="button" class="btn soft" id="syncLink" hidden>Copiar link para compartilhar</button></div></div>
 <input type="file" id="file" accept=".json,application/json" hidden></section>
 </main>
-<footer>Seus livros ficam guardados neste aparelho. Salve um backup de vez em quando.</footer>
+<footer>Estante compartilhada: o que for adicionado ou apagado aparece para todos que usam este link. Salve um backup de vez em quando.<br><span id="syncSt"></span></footer>
 
 <dialog id="dScan"><div class="dlg"><h2>Escanear ISBN</h2>
 <video id="reader" playsinline muted></video><p class="hint" id="scanMsg"></p>
@@ -166,16 +163,12 @@ function isbn(raw){var s=String(raw||'').replace(/[^0-9Xx]/g,'').toUpperCase();
  if(/^\d{9}[\dX]$/.test(s)){var n=0;for(var i=0;i<10;i++)n+=(s[i]==='X'?10:+s[i])*(10-i);if(n%11===0){var b='978'+s.slice(0,9);return b+sum13(b)}}
  return null}
 /* Busca */
-function getJson(u){var c=new AbortController(),t=setTimeout(function(){c.abort()},9000);return fetch(u,{signal:c.signal}).then(function(r){if(!r.ok)throw 0;return r.json()}).finally(function(){clearTimeout(t)})}
-function lookup(i){
- return getJson('https://www.googleapis.com/books/v1/volumes?q=isbn:'+i+'&maxResults=1').then(function(g){
-  var v=g.items&&g.items[0]&&g.items[0].volumeInfo;if(!v)throw 0;var im=v.imageLinks||{};
-  return{title:[v.title,v.subtitle].filter(Boolean).join(': '),authors:(v.authors||[]).join(', '),publisher:v.publisher||'',year:(v.publishedDate||'').slice(0,4),cover:(im.thumbnail||im.smallThumbnail||'').replace('http://','https://').replace('&edge=curl','')}
- }).catch(function(){
-  return getJson('https://openlibrary.org/api/books?bibkeys=ISBN:'+i+'&format=json&jscmd=data').then(function(o){
-   var d=o['ISBN:'+i];if(!d)return null;
-   return{title:[d.title,d.subtitle].filter(Boolean).join(': '),authors:(d.authors||[]).map(function(a){return a.name}).join(', '),publisher:(d.publishers||[]).length?d.publishers[0].name:'',year:((d.publish_date||'').match(/\d{4}/)||[''])[0],cover:d.cover?(d.cover.medium||d.cover.small||''):''}
-  }).catch(function(){return null})})}
+function getJson(u){var c=new AbortController(),t=setTimeout(function(){c.abort()},9000);return fetch(u,{signal:c.signal}).then(function(r){if(!r.ok)throw r.status;return r.json()}).finally(function(){clearTimeout(t)})}
+function fBr(i){return getJson('https://brasilapi.com.br/api/isbn/v1/'+i).then(function(d){if(!d||!d.title)return null;return{title:[d.title,d.subtitle].filter(Boolean).join(': '),authors:(d.authors||[]).join(', '),publisher:d.publisher||'',year:d.year?String(d.year):'',cover:d.cover_url||''}}).catch(function(e){if(e===404)return null;throw e})}
+function fGoogle(i){return getJson('https://www.googleapis.com/books/v1/volumes?q=isbn:'+i+'&maxResults=1&country=BR').then(function(g){var v=g.items&&g.items[0]&&g.items[0].volumeInfo;if(!v)return null;var im=v.imageLinks||{};return{title:[v.title,v.subtitle].filter(Boolean).join(': '),authors:(v.authors||[]).join(', '),publisher:v.publisher||'',year:(v.publishedDate||'').slice(0,4),cover:(im.thumbnail||im.smallThumbnail||'').replace('http://','https://').replace('&edge=curl','')}})}
+function fOpen(i){return getJson('https://openlibrary.org/api/books?bibkeys=ISBN:'+i+'&format=json&jscmd=data').then(function(o){var d=o['ISBN:'+i];if(!d)return null;return{title:[d.title,d.subtitle].filter(Boolean).join(': '),authors:(d.authors||[]).map(function(a){return a.name}).join(', '),publisher:(d.publishers||[]).length?d.publishers[0].name:'',year:((d.publish_date||'').match(/\d{4}/)||[''])[0],cover:d.cover?(d.cover.medium||d.cover.small||''):''}})}
+function lookup(i){return new Promise(function(res){var src=[fBr(i),fGoogle(i),fOpen(i)],n=src.length,bad=0,done=false;
+ src.forEach(function(p){p.then(function(r){if(r&&r.title&&!done){done=true;res(r)}},function(){bad++}).then(function(){if(--n===0&&!done)res(bad===src.length?'erro':null)})})})}
 /* Capas e cards */
 function mkCover(b){
  var box=el('div','cover');
@@ -220,7 +213,7 @@ function fromIsbn(i){
  openBook({isbn:i},null);$('bMsg').textContent='Buscando informações do livro…';
  lookup(i).then(function(r){
   if(!$('dBook').open||$('fIsbn').value!==i||editId)return;
-  if(!r||!r.title){$('bMsg').textContent='Não achei este ISBN nas bases. Preencha à mão.';return}
+  if(r==='erro'){$('bMsg').textContent='Não consegui buscar agora. Verifique a internet e tente de novo, ou preencha à mão.';return}if(!r||!r.title){$('bMsg').textContent='Não achei este ISBN nas bases. Preencha à mão.';return}
   $('fTitle').value=r.title;$('fAut').value=r.authors;$('fPub').value=r.publisher;$('fAno').value=r.year;cover=r.cover;prev();
   $('bMsg').textContent='Encontrei! Confira os dados antes de guardar.'})}
 $('manual').onclick=function(){openBook({},null)};
@@ -269,12 +262,9 @@ $('file').onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new Fi
  r.onload=function(){try{var a=JSON.parse(r.result);if(!Array.isArray(a))throw 0;var n=0;
   a.forEach(function(b){if(!b||!b.title)return;if(books.some(function(x){return x.id===b.id||(b.isbn&&x.isbn===b.isbn)}))return;if(!b.id)b.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);books.push(b);n++});
   save();render();toast(n?n+(n===1?' livro restaurado.':' livros restaurados.'):'Nenhum livro novo neste backup.')}catch(x){toast('Esse arquivo não parece um backup do Acervo Sizzy.')}e.target.value=''};r.readAsText(f)};
-/* Estante compartilhada (Firebase) */
-var DB='',GONE=[],syncing=false,again=false,sto;
-try{DB=localStorage.getItem('acervoSizzy.db')||'';GONE=JSON.parse(localStorage.getItem('acervoSizzy.gone'))||[]}catch(e){}
-function cleanDb(u){u=String(u||'').trim().replace(/\.json.*$/,'').replace(/\/+$/,'');return /^https:\/\/[a-z0-9.-]+\.(firebaseio\.com|firebasedatabase\.app)$/i.test(u)?u:''}
-var hm=location.hash.match(/^#db=(.+)$/);
-if(hm){var hu=cleanDb(decodeURIComponent(hm[1]));if(hu){DB=hu;try{localStorage.setItem('acervoSizzy.db',hu)}catch(e){}}history.replaceState(null,'',location.pathname+location.search)}
+/* Estante compartilhada (Firebase), sempre ligada */
+var DB='https://acervo-sizzy-default-rtdb.firebaseio.com',GONE=[],syncing=false,again=false,sto;
+try{GONE=JSON.parse(localStorage.getItem('acervoSizzy.gone'))||[]}catch(e){}
 function saveGone(){try{localStorage.setItem('acervoSizzy.gone',JSON.stringify(GONE))}catch(e){}}
 function setSt(m){$('syncSt').textContent=m}
 function sig(l){return l.map(function(b){return b.id+':'+(b.upd||0)}).join(',')}
@@ -282,26 +272,20 @@ function merge(a,b){var m={};a.concat(b).forEach(function(x){if(!x||!x.id||GONE.
  var seen={},out=[];Object.keys(m).map(function(k){return m[k]}).sort(function(x,y){return String(x.added||'').localeCompare(String(y.added||''))}).forEach(function(x){if(x.isbn&&seen[x.isbn]){GONE.push(x.id);return}if(x.isbn)seen[x.isbn]=1;out.push(x)});
  return out.reverse()}
 function syncNow(){
- if(!DB)return;if(syncing){again=true;return}
- syncing=true;setSt('Sincronizando…');
+ if(syncing){again=true;return}
+ syncing=true;setSt('Atualizando…');
  fetch(DB+'/acervo.json').then(function(r){if(!r.ok)throw r.status;return r.json()}).then(function(d){
   var rb=d&&Array.isArray(d.books)?d.books:[],rg=d&&Array.isArray(d.gone)?d.gone:[];
   rg.forEach(function(k){if(GONE.indexOf(k)<0)GONE.push(k)});
   var out=merge(books,rb),chg=sig(out)!==sig(books),up=sig(out)!==sig(rb)||rg.length!==GONE.length;
   books=out;if(chg){try{localStorage.setItem(KEY,JSON.stringify(books))}catch(e){}render()}saveGone();
-  if(!up){setSt('Estante compartilhada e em dia.');return}
-  return fetch(DB+'/acervo.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({books:out,gone:GONE})}).then(function(r){if(!r.ok)throw r.status;setSt('Estante compartilhada e em dia.')})
+  if(!up){setSt('Tudo em dia.');return}
+  return fetch(DB+'/acervo.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({books:out,gone:GONE})}).then(function(r){if(!r.ok)throw r.status;setSt('Tudo em dia.')})
  }).catch(function(e){setSt(e===401||e===403?'Sem permissão no banco online. Confira as regras do banco.':'Sem conexão agora. Tente de novo mais tarde.')}).then(function(){syncing=false;if(again){again=false;syncNow()}})}
 function queueSync(){clearTimeout(sto);sto=setTimeout(syncNow,700)}
-function ui(){$('syncLink').hidden=!DB;if(!DB)setSt('Ainda não conectada. Cole abaixo o endereço do banco online.')}
-$('syncForm').onsubmit=function(e){e.preventDefault();var u=cleanDb($('syncIn').value);
- if(!u){setSt('Esse endereço não parece certo. Ele começa com https:// e termina com firebaseio.com ou firebasedatabase.app.');return}
- DB=u;try{localStorage.setItem('acervoSizzy.db',u)}catch(x){}$('syncIn').value='';ui();syncNow()};
-$('syncLink').onclick=function(){var l=location.origin+location.pathname+'#db='+encodeURIComponent(DB);
- (navigator.clipboard?navigator.clipboard.writeText(l):Promise.reject()).then(function(){toast('Link copiado. Mande para quem vai dividir a estante.')}).catch(function(){prompt('Copie este link:',l)})};
 document.addEventListener('visibilitychange',function(){if(!document.hidden)syncNow()});
-setInterval(function(){if(!document.hidden)syncNow()},60000);
-ui();syncNow();
+setInterval(function(){if(!document.hidden)syncNow()},30000);
+syncNow();
 render();
 })();
 </script>
